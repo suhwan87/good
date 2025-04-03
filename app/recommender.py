@@ -31,6 +31,13 @@ class OTTRecommender:
         self.knn_model.fit(self.content_vec)
 
     def recommend(self, user_ott, user_genre, total_needed=10):
+        # ✅ 예외 방지: 존재하지 않는 장르 제거
+        known_genres = self.mlb_genre.classes_.tolist()
+        user_genre = [g for g in user_genre if g in known_genres]
+
+        # ✅ 예외 방지: 장르가 하나도 없으면 빈 결과 반환
+        if not user_genre:
+            return pd.DataFrame(columns=['제목', '장르', 'OTT', '평점', '유사도'])
         # 사용자 벡터 생성
         user_ott_vec = self.mlb_ott.transform([user_ott])
         user_genre_vec = self.mlb_genre.transform([user_genre])
