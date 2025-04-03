@@ -27,7 +27,7 @@ class OTTRecommender:
         self.content_vec = np.hstack([self.ott_vec, self.genre_vec, self.rating_vec])
 
         # KNN 모델 학습
-        self.knn_model = NearestNeighbors(n_neighbors=50, metric='cosine')
+        self.knn_model = NearestNeighbors(n_neighbors=70, metric='cosine')
         self.knn_model.fit(self.content_vec)
 
     def recommend(self, user_ott, user_genre, total_needed=10):
