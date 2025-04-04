@@ -9,7 +9,8 @@ recommender = OTTRecommender("data/OTT_contents_list.csv")
 def get_recommendations(
     user_ott: List[str] = Query(...),
     user_genre: List[str] = Query(...),
-    total_needed: int = 10
+    total_needed: int = 10,
+    latest_only: bool = False
 ):
     df = recommender.recommend(user_ott, user_genre, total_needed)
     return df.to_dict(orient="records")
