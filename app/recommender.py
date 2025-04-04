@@ -21,8 +21,8 @@ class OTTRecommender:
         self.genre_vec = self.mlb_genre.fit_transform(self.df['장르'])
 
         current_year = 2025
-        self.df['제작년도'] = self.df['제작년도'].fillna(2000)
-        self.df['year_score'] = self.df['제작년도'].apply(lambda y: max(0, 25 - (current_year - y)))
+        self.df['제작연도'] = self.df['제작연도'].fillna(2000)
+        self.df['year_score'] = self.df['제작연도'].apply(lambda y: max(0, 25 - (current_year - y)))
         scaler = MinMaxScaler()
         self.year_vec = scaler.fit_transform(self.df[['year_score']])
 
@@ -72,4 +72,4 @@ class OTTRecommender:
             remaining = filtered[~filtered.index.isin(already)].sample(frac=1)
             recommendations.extend(remaining.head(total_needed - len(recommendations)))
 
-        return pd.DataFrame(recommendations)[['제목', '장르', 'OTT', '평점', '제작년도', '유사도']]
+        return pd.DataFrame(recommendations)[['제목', '장르', 'OTT', '평점', '제작연도', '유사도']]
