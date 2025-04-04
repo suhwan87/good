@@ -21,8 +21,10 @@ class OTTRecommender:
         self.genre_vec = self.mlb_genre.fit_transform(self.df['장르'])
 
         current_year = 2025
-        self.df['제작연도'] = self.df['제작연도'].fillna(2000)
-        self.df['year_score'] = self.df['제작연도'].apply(lambda y: max(0, 25 - (current_year - y)))
+        self.df['제작연도'] = self.df['제작연도'].fillna('2000년')
+        self.df['year_score'] = self.df['제작연도'].apply(
+            lambda y: max(0, 25 - (current_year - int(str(y)[:4])))
+        )
         scaler = MinMaxScaler()
         self.year_vec = scaler.fit_transform(self.df[['year_score']])
 
