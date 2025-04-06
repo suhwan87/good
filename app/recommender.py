@@ -1,77 +1,64 @@
+# app/recommend.py
+
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer, MinMaxScaler
-from sklearn.neighbors import NearestNeighbors
-import random
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from scipy.sparse import hstack
 from collections import defaultdict
 
-class OTTRecommender:
-    def __init__(self, csv_path: str):
-        self.df = pd.read_csv(csv_path)
-        self._prepare_data()
+# 데이터 로딩
+df = pd.read_csv("data/CONTENTS_FIN.csv")
+df['CONTENTS_GENRE'] = df['CONTENTS_GENRE'].fillna('').apply(lambda x: x.split(', '))
+df['OTT'] = df['OTT'].fillna('').apply(lambda x: x.split(', '))
+df['DIRECTOR'] = df['DIRECTOR'].fillna('')
+df['CAST'] = df['CAST'].fillna('')
+df['RELEASE_YEAR'] = df['RELEASE_YEAR'].fillna('0').astype(str).str.extract(r'(\d{4})').fillna(0).astype(int)
 
-    def _prepare_data(self):
-        self.df['장르'] = self.df['장르'].fillna('').apply(lambda x: x.split(', '))
-        self.df['OTT'] = self.df['OTT'].fillna('').apply(lambda x: x.split(', '))
+# 벡터화
+mlb_ott = MultiLabelBinarizer()
+mlb_genre = MultiLabelBinarizer()
+ott_vec = mlb_ott.fit_transform(df['OTT'])
+genre_vec = mlb_genre.fit_transform(df['CONTENTS_GENRE'])
+scaler = MinMaxScaler()
+year_vec = scaler.fit_transform(df[['RELEASE_YEAR']])
+vectorizer_director = CountVectorizer()
+director_vec = vectorizer_director.fit_transform(df['DIRECTOR'])
+vectorizer_cast = CountVectorizer()
+cast_vec = vectorizer_cast.fit_transform(df['CAST'])
 
-        self.mlb_ott = MultiLabelBinarizer()
-        self.mlb_genre = MultiLabelBinarizer()
+# 콘텐츠 벡터
+content_vec_initial = np.hstack([ott_vec, genre_vec, year_vec])
+content_vec_detailed = hstack([genre_vec, director_vec, cast_vec]).tocsr()
 
-        self.ott_vec = self.mlb_ott.fit_transform(self.df['OTT'])
-        self.genre_vec = self.mlb_genre.fit_transform(self.df['장르'])
+# 추천 함수
+def hybrid_recommendation(user_ott, user_genre, selected_title=None, total_needed=5, prefer_new=False):
+    user_ott_vec = mlb_ott.transform([user_ott])
+    user_genre_vec = mlb_genre.transform([user_genre])
+    user_year_vec = [[1.0 if prefer_new else 0.0]]
+    user_vec = np.hstack([user_ott_vec, user_genre_vec, user_year_vec])
+    sims_init = cosine_similarity(user_vec, content_vec_initial)[0]
 
-        current_year = 2025
-        self.df['제작연도'] = self.df['제작연도'].fillna('2000년')
-        self.df['year_score'] = self.df['제작연도'].apply(
-            lambda y: max(0, 25 - (current_year - int(str(y)[:4])))
-        )
-        scaler = MinMaxScaler()
-        self.year_vec = scaler.fit_transform(self.df[['year_score']])
+    if selected_title and selected_title in df['CONTENTS_TITLE'].values:
+        idx = df[df['CONTENTS_TITLE'] == selected_title].index[0]
+        sims_selected = cosine_similarity(content_vec_detailed[idx], content_vec_detailed).flatten()
+        combined_sims = (sims_init * 0.6) + (sims_selected * 0.4)
+        exclude_indices = [idx]
+        top_k = 30
+    else:
+        combined_sims = sims_init
+        exclude_indices = []
+        top_k = 100
 
-    def recommend(self, user_ott, user_genre, total_needed=10, latest_only=False):
-        user_ott_vec = self.mlb_ott.transform([user_ott])
-        user_genre_vec = self.mlb_genre.transform([user_genre])
+    if prefer_new:
+        year_score = scaler.transform(df[['RELEASE_YEAR']]).flatten()
+        final_score = (combined_sims * 0.8) + (year_score * 0.2)
+    else:
+        final_score = combined_sims
 
-        if latest_only:
-            user_year_vec = [[1.0]]
-            user_vec = np.hstack([user_ott_vec, user_genre_vec, user_year_vec])
-            content_vec = np.hstack([self.ott_vec, self.genre_vec, self.year_vec])
-        else:
-            user_vec = np.hstack([user_ott_vec, user_genre_vec])
-            content_vec = np.hstack([self.ott_vec, self.genre_vec])
+    df['유사도'] = final_score
+    filtered_df = df[~df.index.isin(exclude_indices)].sort_values(by='유사도', ascending=False).head(top_k)
+    sampled_df = filtered_df.sample(n=min(total_needed, len(filtered_df)), replace=False)
 
-        knn_model = NearestNeighbors(n_neighbors=50, metric='cosine')
-        knn_model.fit(content_vec)
-        distances, indices = knn_model.kneighbors(user_vec)
-
-        candidates = self.df.iloc[indices[0]].copy()
-        candidates['유사도'] = 1 - distances[0]
-
-        filtered = candidates[candidates['유사도'] >= 0.7].sample(frac=1).reset_index(drop=True)
-
-        genres_selected = len(user_genre)
-        min_per_genre = total_needed // genres_selected
-        extra = total_needed % genres_selected
-        genre_limit = {genre: min_per_genre + (1 if i < extra else 0) for i, genre in enumerate(user_genre)}
-
-        recommendations = []
-        genre_count = defaultdict(int)
-
-        for _, row in filtered.iterrows():
-            content_genres = row['장르']
-            matched = [g for g in content_genres if g in user_genre]
-            random.shuffle(matched)
-            for genre in matched:
-                if genre_count[genre] < genre_limit[genre]:
-                    recommendations.append(row)
-                    genre_count[genre] += 1
-                    break
-            if len(recommendations) >= total_needed:
-                break
-
-        if len(recommendations) < total_needed:
-            already = set(r.name for r in recommendations)
-            remaining = filtered[~filtered.index.isin(already)].sample(frac=1)
-            recommendations.extend(remaining.head(total_needed - len(recommendations)))
-
-        return pd.DataFrame(recommendations)[['제목', '장르', 'OTT', '평점', '제작연도', '유사도']]
+    return sampled_df[['CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST', 'OTT', 'RELEASE_YEAR', '유사도']].to_dict(orient='records')
