@@ -49,7 +49,7 @@ def hybrid_recommendation(user_ott, user_genre, selected_title=None, total_neede
     else:
         combined_sims = sims_init
         exclude_indices = []
-        top_k = 100
+        top_k = 50
 
     if prefer_new:
         year_score = scaler.transform(df[['RELEASE_YEAR']]).flatten()
