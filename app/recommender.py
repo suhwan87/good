@@ -1,12 +1,9 @@
-# app/recommend.py
-
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer, MinMaxScaler
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse import hstack
-from collections import defaultdict
 
 # 데이터 로딩
 df = pd.read_csv("data/CONTENTS_FIN.csv")
@@ -38,19 +35,9 @@ def hybrid_recommendation(user_ott, user_genre, selected_title=None, total_neede
     user_genre_vec = mlb_genre.transform([user_genre])
     user_year_vec = [[1.0 if prefer_new else 0.0]]
     user_vec = np.hstack([user_ott_vec, user_genre_vec, user_year_vec])
+
     sims_init = cosine_similarity(user_vec, content_vec_initial)[0]
 
-
-    # user_vec와 첫 번째 콘텐츠 벡터 간의 유사도 계산
-    # cosine_similarity는 2D 배열을 요구하므로 reshape
-    user_vec_2d = user_vec.reshape(1, -1)  # 1D 배열을 2D 배열로 변환
-    content_vec_initial_2d = content_vec_initial[0].reshape(1, -1)  # 1D 배열을 2D 배열로 변환
-
-    print("user_vec와 첫 번째 콘텐츠 벡터 간의 유사도:", cosine_similarity(user_vec_2d, content_vec_initial_2d))
-
-    sims_init = cosine_similarity(user_vec_2d, content_vec_initial)[0]
-    
-    print("sims_init:", sims_init)
     if selected_title and selected_title in df['CONTENTS_TITLE'].values:
         idx = df[df['CONTENTS_TITLE'] == selected_title].index[0]
         sims_selected = cosine_similarity(content_vec_detailed[idx], content_vec_detailed).flatten()
@@ -69,16 +56,20 @@ def hybrid_recommendation(user_ott, user_genre, selected_title=None, total_neede
         final_score = combined_sims
 
     df['유사도'] = final_score
-    filtered_df = df[~df.index.isin(exclude_indices)].sort_values(by='유사도', ascending=False).head(top_k)
+
+    # ✅ 유사도 0.0 이상만 필터링
+    filtered_df = df[(df['유사도'] > 0) & (~df.index.isin(exclude_indices))]
+    filtered_df = filtered_df.sort_values(by='유사도', ascending=False).head(top_k)
+
+    if len(filtered_df) == 0:
+        print("❌ 모든 콘텐츠의 유사도가 0입니다.")
+        return []
+
+    # ✅ 랜덤 샘플링
     sampled_df = filtered_df.sample(n=min(total_needed, len(filtered_df)), replace=False)
 
     return sampled_df[[
-    'CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST',
-    'OTT', 'RELEASE_YEAR', 'POSTER_IMG', '유사도'
+        'CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST',
+        'OTT', 'RELEASE_YEAR', 'POSTER_IMG', '유사도'
     ]].to_dict(orient='records')
 
-
-# 함수 호출 예시
-user_ott = ['넷플릭스', '티빙']
-user_genre = ['드라마', '스릴러', '액션']
-result = hybrid_recommendation(user_ott, user_genre)
