@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
-from typing import List, Optional
-from app.recommender import hybrid_recommendation
+from typing import List
+from app.recommend import hybrid_recommendation
 
 router = APIRouter()
 
@@ -8,9 +8,9 @@ router = APIRouter()
 def recommend(
     user_ott: List[str] = Query(...),
     user_genre: List[str] = Query(...),
-    prefer_new: bool = False,
-    selected_title: Optional[str] = None,
-    total_needed: int = 5
+    selected_title: str = "",
+    total_needed: int = 5,
+    prefer_new: bool = False
 ):
     results = hybrid_recommendation(
         user_ott=user_ott,
