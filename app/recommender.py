@@ -58,6 +58,7 @@ def hybrid_recommendation(user_ott, user_genre, selected_title=None, total_neede
         final_score = combined_sims
 
     df['유사도'] = final_score
+    df = df[df['유사도'] > 0]  # 유사도 0인 콘텐츠는 제외
     filtered_df = df[~df.index.isin(exclude_indices)].sort_values(by='유사도', ascending=False).head(top_k)
     sampled_df = filtered_df.sample(n=min(total_needed, len(filtered_df)), replace=False)
 
