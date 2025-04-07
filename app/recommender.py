@@ -45,7 +45,7 @@ def hybrid_recommendation(user_ott, user_genre, selected_title=None, total_neede
         sims_selected = cosine_similarity(content_vec_detailed[idx], content_vec_detailed).flatten()
         combined_sims = (sims_init * 0.6) + (sims_selected * 0.4)
         exclude_indices = [idx]
-        top_k = 30
+        top_k = 10
     else:
         combined_sims = sims_init
         exclude_indices = []
