@@ -65,7 +65,3 @@ def hybrid_recommendation(user_ott, user_genre, selected_title=None, total_neede
     'CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST',
     'OTT', 'RELEASE_YEAR', 'POSTER_IMG', '유사도'
     ]].to_dict(orient='records')
-
-print("학습된 OTT 목록:", mlb_ott.classes_)
-print("학습된 장르 목록:", mlb_genre.classes_)
-
