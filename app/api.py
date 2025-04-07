@@ -4,16 +4,12 @@ from app.recommender import hybrid_recommendation
 
 router = APIRouter()
 
-@router.get("/")
-def root():
-    return {"message": "OTT Recommendation API"}
-
 @router.get("/recommend")
-def get_recommendation(
+def recommend(
     user_ott: List[str] = Query(...),
     user_genre: List[str] = Query(...),
-    selected_title: Optional[str] = None,
     prefer_new: bool = False,
+    selected_title: Optional[str] = None,
     total_needed: int = 5
 ):
     results = hybrid_recommendation(
