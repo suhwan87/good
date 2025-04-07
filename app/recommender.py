@@ -61,4 +61,8 @@ def hybrid_recommendation(user_ott, user_genre, selected_title=None, total_neede
     filtered_df = df[~df.index.isin(exclude_indices)].sort_values(by='유사도', ascending=False).head(top_k)
     sampled_df = filtered_df.sample(n=min(total_needed, len(filtered_df)), replace=False)
 
-    return sampled_df[['CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST', 'OTT', 'RELEASE_YEAR', '유사도']].to_dict(orient='records')
+    return sampled_df[[
+    'CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST',
+    'OTT', 'RELEASE_YEAR', 'POSTER_IMG', '유사도'
+    ]].to_dict(orient='records')
+
