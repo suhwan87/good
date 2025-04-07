@@ -34,20 +34,13 @@ content_vec_detailed = hstack([genre_vec, director_vec, cast_vec]).tocsr()
 
 # 추천 함수
 def hybrid_recommendation(user_ott, user_genre, selected_title=None, total_needed=5, prefer_new=False):
-    # 벡터화
     user_ott_vec = mlb_ott.transform([user_ott])
     user_genre_vec = mlb_genre.transform([user_genre])
     user_year_vec = [[1.0 if prefer_new else 0.0]]
     user_vec = np.hstack([user_ott_vec, user_genre_vec, user_year_vec])
-    
-    # 유사도 초기 계산
     sims_init = cosine_similarity(user_vec, content_vec_initial)[0]
 
-    # 선택 콘텐츠 유사도 계산
-    selected_title = selected_title.strip() if selected_title else None
-    has_selected = selected_title and selected_title in df['CONTENTS_TITLE'].values
-
-    if has_selected:
+    if selected_title and selected_title in df['CONTENTS_TITLE'].values:
         idx = df[df['CONTENTS_TITLE'] == selected_title].index[0]
         sims_selected = cosine_similarity(content_vec_detailed[idx], content_vec_detailed).flatten()
         combined_sims = (sims_init * 0.6) + (sims_selected * 0.4)
@@ -58,21 +51,18 @@ def hybrid_recommendation(user_ott, user_genre, selected_title=None, total_neede
         exclude_indices = []
         top_k = 50
 
-    # 최신 콘텐츠 선호 반영
     if prefer_new:
         year_score = scaler.transform(df[['RELEASE_YEAR']]).flatten()
         final_score = (combined_sims * 0.8) + (year_score * 0.2)
     else:
         final_score = combined_sims
 
-    # 최종 추천 결과
     df['유사도'] = final_score
     filtered_df = df[~df.index.isin(exclude_indices)].sort_values(by='유사도', ascending=False).head(top_k)
     sampled_df = filtered_df.sample(n=min(total_needed, len(filtered_df)), replace=False)
 
     return sampled_df[[
-        'CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST',
-        'OTT', 'RELEASE_YEAR', 'POSTER_IMG', '유사도'
+    'CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST',
+    'OTT', 'RELEASE_YEAR', 'POSTER_IMG', '유사도'
     ]].to_dict(orient='records')
-
 
