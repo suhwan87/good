@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 from typing import List
-from app.recommend import hybrid_recommendation
+from app.recommender import hybrid_recommendation
 
 router = APIRouter()
 
