@@ -40,9 +40,17 @@ def hybrid_recommendation(user_ott, user_genre, selected_title=None, total_neede
     user_vec = np.hstack([user_ott_vec, user_genre_vec, user_year_vec])
     sims_init = cosine_similarity(user_vec, content_vec_initial)[0]
 
-    print("user_vec:", user_vec)
-    print("sims_init:", sims_init)
+
+    # user_vec와 첫 번째 콘텐츠 벡터 간의 유사도 계산
+    # cosine_similarity는 2D 배열을 요구하므로 reshape
+    user_vec_2d = user_vec.reshape(1, -1)  # 1D 배열을 2D 배열로 변환
+    content_vec_initial_2d = content_vec_initial[0].reshape(1, -1)  # 1D 배열을 2D 배열로 변환
+
+    print("user_vec와 첫 번째 콘텐츠 벡터 간의 유사도:", cosine_similarity(user_vec_2d, content_vec_initial_2d))
+
+    sims_init = cosine_similarity(user_vec_2d, content_vec_initial)[0]
     
+    print("sims_init:", sims_init)
     if selected_title and selected_title in df['CONTENTS_TITLE'].values:
         idx = df[df['CONTENTS_TITLE'] == selected_title].index[0]
         sims_selected = cosine_similarity(content_vec_detailed[idx], content_vec_detailed).flatten()
@@ -68,3 +76,9 @@ def hybrid_recommendation(user_ott, user_genre, selected_title=None, total_neede
     'CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST',
     'OTT', 'RELEASE_YEAR', 'POSTER_IMG', '유사도'
     ]].to_dict(orient='records')
+
+
+# 함수 호출 예시
+user_ott = ['넷플릭스', '티빙']
+user_genre = ['드라마', '스릴러', '액션']
+result = hybrid_recommendation(user_ott, user_genre)
