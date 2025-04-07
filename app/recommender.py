@@ -40,6 +40,9 @@ def hybrid_recommendation(user_ott, user_genre, selected_title=None, total_neede
     user_vec = np.hstack([user_ott_vec, user_genre_vec, user_year_vec])
     sims_init = cosine_similarity(user_vec, content_vec_initial)[0]
 
+    print("user_vec:", user_vec)
+    print("sims_init:", sims_init)
+    
     if selected_title and selected_title in df['CONTENTS_TITLE'].values:
         idx = df[df['CONTENTS_TITLE'] == selected_title].index[0]
         sims_selected = cosine_similarity(content_vec_detailed[idx], content_vec_detailed).flatten()
