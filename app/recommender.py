@@ -77,9 +77,11 @@ def recommend_selected(selected_title, total_needed=5):
     sims = cosine_similarity(content_vec_detailed[idx], content_vec_detailed).flatten()
     df['유사도'] = sims
     filtered = df[(df.index != idx) & (df['유사도'] > 0)].sort_values(by='유사도', ascending=False).head(50)
-    sampled = filtered.sample(n=min(total_needed, len(filtered)), replace=False)
 
-    return sampled[[
+    # ✅ 랜덤 제거 → 상위 순으로만 추출
+    top_n = filtered.head(min(total_needed, len(filtered)))
+
+    return top_n[[  # 변수명 변경 가능
         'CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST',
         'OTT', 'RELEASE_YEAR', 'POSTER_IMG', '유사도'
     ]].to_dict(orient='records')
