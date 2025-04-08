@@ -31,15 +31,32 @@ content_vec_detailed = hstack([genre_vec, director_vec, cast_vec]).tocsr()
 
 # ✅ 기본 추천 함수
 def recommend_basic(user_ott, user_genre, total_needed=5, prefer_new=False):
+    # 입력 벡터 생성
     user_ott_vec = mlb_ott.transform([user_ott])
     user_genre_vec = mlb_genre.transform([user_genre])
     user_year_vec = [[1.0 if prefer_new else 0.0]]
     user_vec = np.hstack([user_ott_vec, user_genre_vec, user_year_vec])
 
+    # 콘텐츠 벡터에서도 동일한 구조
     sims = cosine_similarity(user_vec, content_vec_initial)[0]
+
+    # 👉 가중치 설정
+    ott_weight = 0.2
+    genre_weight = 0.6
+    year_weight = 0.2 if prefer_new else 0.0
+
+    # 콘텐츠 벡터도 ott + genre + year 순서니까 인덱스 잘라서 따로 계산
+    ott_len = user_ott_vec.shape[1]
+    genre_len = user_genre_vec.shape[1]
+
+    ott_part = cosine_similarity(user_ott_vec, content_vec_initial[:, :ott_len])[0]
+    genre_part = cosine_similarity(user_genre_vec, content_vec_initial[:, ott_len:ott_len + genre_len])[0]
+    year_part = content_vec_initial[:, -1].toarray().flatten() if hasattr(content_vec_initial[:, -1], 'toarray') else content_vec_initial[:, -1]
+
+    # 종합 유사도 계산
+    sims = (ott_part * ott_weight) + (genre_part * genre_weight)
     if prefer_new:
-        year_score = scaler.transform(df[['RELEASE_YEAR']]).flatten()
-        sims = (sims * 0.8) + (year_score * 0.2)
+        sims += year_part * year_weight
 
     df['유사도'] = sims
     filtered = df[df['유사도'] > 0].sort_values(by='유사도', ascending=False).head(50)
@@ -49,6 +66,7 @@ def recommend_basic(user_ott, user_genre, total_needed=5, prefer_new=False):
         'CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST',
         'OTT', 'RELEASE_YEAR', 'POSTER_IMG', '유사도'
     ]].to_dict(orient='records')
+
 
 # ✅ 선택 콘텐츠 기반 추천 함수
 def recommend_selected(selected_title, total_needed=5):
