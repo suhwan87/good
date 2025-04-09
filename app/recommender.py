@@ -74,7 +74,14 @@ def recommend_basic(user_ott, user_genre, prefer_new=True, total_needed=5):
         recommendations.extend(more)
 
     result_df = pd.DataFrame(recommendations)
-    return result_df[['CONTENTS_TITLE', 'CONTENTS_GENRE', 'OTT', 'RELEASE_YEAR', '유사도']].to_dict(orient='records')
+    return result_df[
+    [
+        "CONTENTS_SEQ", "CONTENTS_TITLE", "CONTENTS_SYNOPSIS", "CONTENTS_GENRE",
+        "AGE_RATING", "RELEASE_YEAR", "RATING", "POSTER_IMG",
+        "DIRECTOR", "CAST", "OTT", "유사도"
+    ]
+    ].to_dict(orient="records")
+
 
 
 
@@ -88,4 +95,11 @@ def recommend_selected(title: str, top_n: int = 5):
     df['유사도'] = sim_scores
     result = df[df.index != idx].sort_values(by='유사도', ascending=False).head(top_n)
     
-    return result[['CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST', '유사도']].to_dict(orient='records')
+    return result_df[
+    [
+        "CONTENTS_SEQ", "CONTENTS_TITLE", "CONTENTS_SYNOPSIS", "CONTENTS_GENRE",
+        "AGE_RATING", "RELEASE_YEAR", "RATING", "POSTER_IMG",
+        "DIRECTOR", "CAST", "OTT", "유사도"
+    ]
+    ].to_dict(orient="records")
+
