@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 from typing import List
-from recommender import recommend_basic, recommend_selected
+from app.recommender import recommend_basic, recommend_selected
 
 router = APIRouter()
 
