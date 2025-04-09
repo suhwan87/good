@@ -4,6 +4,7 @@ from sklearn.preprocessing import MultiLabelBinarizer, MinMaxScaler
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse import hstack
+from collections import defaultdict
 
 # 데이터 로딩 및 전처리
 df = pd.read_csv("data/CONTENTS_FIN.csv")
@@ -13,75 +14,78 @@ df['DIRECTOR'] = df['DIRECTOR'].fillna('')
 df['CAST'] = df['CAST'].fillna('')
 df['RELEASE_YEAR'] = df['RELEASE_YEAR'].fillna('0').astype(str).str.extract(r'(\d{4})').fillna(0).astype(int)
 
-# 벡터화
+# 벡터 준비
 mlb_ott = MultiLabelBinarizer()
 mlb_genre = MultiLabelBinarizer()
 ott_vec = mlb_ott.fit_transform(df['OTT'])
 genre_vec = mlb_genre.fit_transform(df['CONTENTS_GENRE'])
 scaler = MinMaxScaler()
 year_vec = scaler.fit_transform(df[['RELEASE_YEAR']])
+basic_content_vec = np.hstack([ott_vec, genre_vec, year_vec])
+
 vectorizer_director = CountVectorizer()
-director_vec = vectorizer_director.fit_transform(df['DIRECTOR'])
 vectorizer_cast = CountVectorizer()
+genre_vec_sel = mlb_genre.transform(df['CONTENTS_GENRE'])
+director_vec = vectorizer_director.fit_transform(df['DIRECTOR'])
 cast_vec = vectorizer_cast.fit_transform(df['CAST'])
+selected_content_vec = hstack([genre_vec_sel, director_vec, cast_vec]).tocsr()
 
-# 콘텐츠 벡터
-content_vec_initial = np.hstack([ott_vec, genre_vec, year_vec])
-content_vec_detailed = hstack([genre_vec, director_vec, cast_vec]).tocsr()
 
-# ✅ 기본 추천 함수
-def recommend_basic(user_ott, user_genre, total_needed=5, prefer_new=False):
-    # 입력 벡터 생성
+def recommend_basic(user_ott, user_genre, prefer_new=True, total_needed=5):
     user_ott_vec = mlb_ott.transform([user_ott])
     user_genre_vec = mlb_genre.transform([user_genre])
     user_year_vec = [[1.0 if prefer_new else 0.0]]
     user_vec = np.hstack([user_ott_vec, user_genre_vec, user_year_vec])
-
-    # 콘텐츠 벡터에서도 동일한 구조
-    sims = cosine_similarity(user_vec, content_vec_initial)[0]
-
-    # 👉 가중치 설정
-    ott_weight = 0.2
-    genre_weight = 0.6
-    year_weight = 0.2 if prefer_new else 0.0
-
-    # 콘텐츠 벡터도 ott + genre + year 순서니까 인덱스 잘라서 따로 계산
-    ott_len = user_ott_vec.shape[1]
-    genre_len = user_genre_vec.shape[1]
-
-    ott_part = cosine_similarity(user_ott_vec, content_vec_initial[:, :ott_len])[0]
-    genre_part = cosine_similarity(user_genre_vec, content_vec_initial[:, ott_len:ott_len + genre_len])[0]
-    year_part = content_vec_initial[:, -1].toarray().flatten() if hasattr(content_vec_initial[:, -1], 'toarray') else content_vec_initial[:, -1]
-
-    # 종합 유사도 계산
-    sims = (ott_part * ott_weight) + (genre_part * genre_weight)
-    if prefer_new:
-        sims += year_part * year_weight
-
+    
+    sims = cosine_similarity(user_vec, basic_content_vec)[0]
     df['유사도'] = sims
-    filtered = df[df['유사도'] > 0].sort_values(by='유사도', ascending=False).head(50)
-    sampled = filtered.sample(n=min(total_needed, len(filtered)), replace=False)
 
-    return sampled[[
-        'CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST',
-        'OTT', 'RELEASE_YEAR', 'POSTER_IMG', '유사도'
-    ]].to_dict(orient='records')
+    # ✅ 유사도 상위 50개만 선별한 뒤 셔플
+    top_df = df.sort_values(by='유사도', ascending=False).head(50).sample(frac=1).copy()
+
+    genres_selected = len(user_genre)
+    min_per_genre = total_needed // genres_selected
+    extra = total_needed % genres_selected
+    genre_limit = {g: min_per_genre + (1 if i < extra else 0) for i, g in enumerate(user_genre)}
+    
+    recommendations = []
+    genre_count = defaultdict(int)
+
+    for idx, row in top_df.iterrows():
+        content_genres = row['CONTENTS_GENRE']
+        matched = [g for g in content_genres if g in user_genre]
+        
+        for g in matched:
+            if genre_count[g] < genre_limit[g]:
+                recommendations.append(row)
+                genre_count[g] += 1
+                break
+        
+        if len(recommendations) >= total_needed:
+            break
+
+    # ✅ 부족하면 top_df에서 남은 것 채우기
+    if len(recommendations) < total_needed:
+        already_selected = set(r.name for r in recommendations)
+        remaining = top_df[~top_df.index.isin(already_selected)]
+        if prefer_new:
+            remaining = remaining.sort_values(by='RELEASE_YEAR', ascending=False)
+        more = remaining.head(total_needed - len(recommendations)).to_dict(orient='records')
+        recommendations.extend(more)
+
+    result_df = pd.DataFrame(recommendations)
+    return result_df[['CONTENTS_TITLE', 'CONTENTS_GENRE', 'OTT', 'RELEASE_YEAR', '유사도']].to_dict(orient='records')
 
 
-# ✅ 선택 콘텐츠 기반 추천 함수
-def recommend_selected(selected_title, total_needed=5):
-    if selected_title not in df['CONTENTS_TITLE'].values:
-        return []
 
-    idx = df[df['CONTENTS_TITLE'] == selected_title].index[0]
-    sims = cosine_similarity(content_vec_detailed[idx], content_vec_detailed).flatten()
-    df['유사도'] = sims
-    filtered = df[(df.index != idx) & (df['유사도'] > 0)].sort_values(by='유사도', ascending=False).head(50)
-
-    # ✅ 랜덤 제거 → 상위 순으로만 추출
-    top_n = filtered.head(min(total_needed, len(filtered)))
-
-    return top_n[[  # 변수명 변경 가능
-        'CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST',
-        'OTT', 'RELEASE_YEAR', 'POSTER_IMG', '유사도'
-    ]].to_dict(orient='records')
+def recommend_selected(title: str, top_n: int = 5):
+    if title not in df['CONTENTS_TITLE'].values:
+        return {"message": f"'{title}'은(는) 데이터에 없습니다."}
+    
+    idx = df[df['CONTENTS_TITLE'] == title].index[0]
+    sim_scores = cosine_similarity(selected_content_vec[idx], selected_content_vec).flatten()
+    
+    df['유사도'] = sim_scores
+    result = df[df.index != idx].sort_values(by='유사도', ascending=False).head(top_n)
+    
+    return result[['CONTENTS_TITLE', 'CONTENTS_GENRE', 'DIRECTOR', 'CAST', '유사도']].to_dict(orient='records')
