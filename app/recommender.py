@@ -96,12 +96,12 @@ def recommend_selected(title: str, top_n: int = 5):
     df['유사도'] = sim_scores
     result = df[df.index != idx].sort_values(by='유사도', ascending=False).head(top_n)
     
-    return {"results": result[
+    return result[
     [
         "CONTENTS_SEQ", "CONTENTS_TITLE", "CONTENTS_SYNOPSIS", "CONTENTS_GENRE",
         "AGE_RATING", "RELEASE_YEAR", "RATING", "POSTER_IMG",
         "DIRECTOR", "CAST", "OTT", "유사도"
     ]
-    ].to_dict(orient="records")}
+    ].to_dict(orient="records")
 
 
