@@ -21,7 +21,3 @@ def get_selected_recommendation(
     top_n: int = 5
 ):
     return recommend_selected(title=title, top_n=top_n)
-
-@router.get("/ping")
-def ping():
-    return {"message": "pong"}
