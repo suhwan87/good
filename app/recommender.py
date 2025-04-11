@@ -40,8 +40,8 @@ def recommend_basic(user_ott, user_genre, prefer_new=True, total_needed=5):
     sims = cosine_similarity(user_vec, basic_content_vec)[0]
     df['유사도'] = sims
 
-    # ✅ 유사도 상위 50개만 선별한 뒤 셔플
-    top_df = df.sort_values(by='유사도', ascending=False).head(50).sample(frac=1).copy()
+    # ✅ 유사도 상위 200개만 선별한 뒤 셔플
+    top_df = df.sort_values(by='유사도', ascending=False).head(200).sample(frac=1).copy()
 
     genres_selected = len(user_genre)
     min_per_genre = total_needed // genres_selected
