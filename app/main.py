@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore")
 # ✅ keep-alive 스케줄러 정의
 def send_ping():
     now = datetime.datetime.now().strftime("%H:%M:%S")
-    url = "https://good-vlmd.onrender.com/ping"
+    url = "https://good-mgqd.onrender.com/ping"
     try:
         print(f"[{now}] Sending ping to {url}")
         res = requests.get(url)

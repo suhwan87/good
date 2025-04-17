@@ -103,5 +103,3 @@ def recommend_selected(title: str, top_n: int = 5):
         "DIRECTOR", "CAST", "OTT", "유사도"
     ]
     ].to_dict(orient="records")
-
-
